@@ -1,6 +1,5 @@
 """Up Bank integration bootstrap (polling, options, coordinator)."""
 from __future__ import annotations
-
 import logging
 from datetime import timedelta
 from typing import Any, Dict, Optional
@@ -9,6 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.const import CONF_API_KEY
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .webhook_manager import async_setup_webhook
 from .webhook_manager import async_delete_webhook
@@ -37,7 +37,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not isinstance(refresh_min, int) or refresh_min <= 0:
         refresh_min = DEFAULT_REFRESH_MIN
 
-    api = UP(hass, api_key)
+
+    api = UP(hass, api_key, session=async_get_clientsession(hass))
 
     coordinator = UpDataCoordinator(hass, api, timedelta(minutes=refresh_min))
 
@@ -61,10 +62,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Clean up webhook
     data = hass.data[DOMAIN][entry.entry_id]
-    
+
+    api_key = entry.data.get(CONF_API_KEY)
+
+    api = UP(hass, api_key, session=async_get_clientsession(hass))
+
     up_webhook_id = entry.data.get("up_webhook_id")
 
-    await async_delete_webhook(entry, data["api"])
+    await async_delete_webhook(UP, up_webhook_id)
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
