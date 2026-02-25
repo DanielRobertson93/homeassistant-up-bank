@@ -1,40 +1,42 @@
-import aiohttp
 import logging
+import aiohttp
+from typing import Any, Dict, Optional
 
 _LOGGER = logging.getLogger(__name__)
 #_LOGGER.setLevel(logging.DEBUG)  # Ensure debug-level messages are logged
 
+MAX_TX_PER_PAGE = 50               # page size for /transactions
 BASE_URL = "https://api.up.com.au/api/v1"
 
 class UP:
-    def __init__(self, api_key):
-        self.api_key = api_key
+    def __init__(self, session: aiohttp.ClientSession):
+        self._session = session
 
-    async def call(self, endpoint, params=None, method="get"):
+    async def call(self, endpoint, method="get", params=None, json=None):
         if params is None:
             params = {}
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+
+        _LOGGER.debug(f"Making {method.upper()} request to {BASE_URL + endpoint} with headers: {self._session.headers} and params: {params} and json: {json}")
         
-        _LOGGER.debug(f"Making {method.upper()} request to {BASE_URL + endpoint} with headers: {headers} and params: {params}")
-        
-        async with aiohttp.ClientSession(headers=headers) as session:
-            try:
-                async with session.request(method, BASE_URL + endpoint, params=params) as resp:
-                    _LOGGER.debug(f"Received response status: {resp.status}")
-                    
-                    if resp.status == 401:
-                        _LOGGER.error("Unauthorized: Invalid API Key")
-                        return None
-                    if resp.status != 200:
-                        _LOGGER.error(f"Error: Received status code {resp.status}")
-                        return None
-                    
-                    response_data = await resp.json()
-                    _LOGGER.debug(f"Response JSON: {response_data}")
-                    return response_data
-            except aiohttp.ClientError as e:
-                _LOGGER.error(f"Network error occurred: {e}")
-                return None
+        #async with async_get_clientsession(headers=headers) as session:
+        # todo: add other branch to utilise clientsession from HA ^^
+        try:
+            async with self._session.request(method=method, url=BASE_URL + endpoint, params=params, json=json) as resp:
+                _LOGGER.debug(f"Received response status: {resp.status}")
+                
+                if resp.status == 401:
+                    _LOGGER.error("Unauthorized: Invalid API Key")
+                    return None
+                if resp.status not in {200, 201, 204}:
+                    _LOGGER.error(f"Error: Received status code {resp.status}")
+                    return None
+                
+                response_data = await resp.json()
+                _LOGGER.debug(f"Response JSON: {response_data}")
+                return response_data
+        except aiohttp.ClientError as e:
+            _LOGGER.error(f"Network error occurred: {e}")
+            return None
 
     async def test(self, api_key=None) -> bool:
         original_key = self.api_key
@@ -52,24 +54,63 @@ class UP:
         finally:
             self.api_key = original_key
 
-    async def get_accounts(self):
-        result = await self.call('/accounts', {"page[size]": 100})
-        if result is None:
-            _LOGGER.warning("Failed to retrieve accounts.")
-            return None
+    async def create_webhook(self, callback_url: str) -> str:
+        data = {
+            "data": {
+                "attributes": {
+                    "url": callback_url,
+                    "description": "Home Assistant"
+                }
+            }
+        }
+        resp = await self.call("/webhooks", method="post", params=None, json=data)
+        return resp["data"]
 
-        accounts = {}
-        for account in result.get('data', []):
-            details = BankAccount(account)
-            accounts[details.id] = details
-        _LOGGER.debug(f"Retrieved accounts: {accounts}")
-        return accounts
+    async def webhook_exists(self, webhook_id: str) -> bool:
+        resp = await self.call(f"/webhooks/{webhook_id}/ping", method="post")
+        return True
 
-class BankAccount:
-    def __init__(self, data):
-        self.name = data['attributes']['displayName']
-        self.balance = data['attributes']['balance']['value']
-        self.id = data['id']
-        self.created_at = data['attributes']['createdAt']
-        self.account_type = data['attributes']['accountType']
-        self.ownership = data['attributes']['ownershipType']
+    async def list_webhooks(self) -> str:
+        response = await self.call(f"/webhooks")
+        return response
+
+    async def delete_webhook(self, webhook_id: str) -> bool:
+        response = await self.call(f"/webhooks/{webhook_id}", method= "delete")
+        return response != None
+
+    async def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        async with self.call(path, params=params) as resp:
+            text = await resp.text()
+            if resp.status == 401:
+                raise UpdateFailed("Unauthorized (401). Check your Up API token.")
+            if resp.status >= 400:
+                raise UpdateFailed(f"Up API error {resp.status}: {text[:200]}")
+            # Attempt JSON decode only after status checks
+            return await resp.json()
+        
+    async def _post(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        url = f"{BASE_URL}{path}"
+        async with self._session.post(url, headers=self._headers, params=params) as resp:
+            text = await resp.text()
+            if resp.status == 401:
+                raise UpdateFailed("Unauthorized (401). Check your Up API token.")
+            if resp.status >= 400:
+                raise UpdateFailed(f"Up API error {resp.status}: {text[:200]}")
+            # Attempt JSON decode only after status checks
+            return await resp.json()
+
+    async def get_accounts(self) -> Dict[str, Any]:
+        return await self._get("/accounts")
+    
+    async def get_account(self, accountID: str) -> Dict[str, Any]:
+        return await self.call(f"/accounts/{accountID}")
+
+    async def get_transactions(self, page_size: int = MAX_TX_PER_PAGE) -> Dict[str, Any]:
+        # Most recent first; one page is plenty for dashboards & notifications.
+        return await self._get("/transactions", params={"page[size]": str(page_size)})
+
+    async def get_categories(self) -> Dict[str, Any]:
+        return await self._get("/categories")
+
+    async def get_tags(self) -> Dict[str, Any]:
+        return await self._get("/tags")

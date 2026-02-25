@@ -4,3 +4,5 @@ config/
 # Ignore all __pycache__ folders
 __pycache__/
 
+custom_components/up-bank/testing.py
+custom_components/up-bank/exampleJson
