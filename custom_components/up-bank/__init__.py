@@ -55,6 +55,9 @@ class UpApi:
 
     async def get_tags(self) -> Dict[str, Any]:
         return await self._get("/tags")
+    
+    async def ping(self) -> bool:
+        return await self._get("/util/ping")
 
 
 # ---------- DataUpdateCoordinator ----------
