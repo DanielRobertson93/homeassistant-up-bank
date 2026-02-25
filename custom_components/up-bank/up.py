@@ -38,22 +38,6 @@ class UP:
             _LOGGER.error(f"Network error occurred: {e}")
             return None
 
-    async def test(self, api_key=None) -> bool:
-        original_key = self.api_key
-        if api_key:
-            self.api_key = api_key
-        
-        try:
-            result = await self.call("/util/ping")
-            if result is not None:
-                _LOGGER.debug("API key validated successfully.")
-                return True
-            else:
-                _LOGGER.error("API key validation failed.")
-                return False
-        finally:
-            self.api_key = original_key
-
     async def create_webhook(self, callback_url: str) -> str:
         data = {
             "data": {
@@ -68,7 +52,7 @@ class UP:
 
     async def webhook_exists(self, webhook_id: str) -> bool:
         resp = await self.call(f"/webhooks/{webhook_id}/ping", method="post")
-        return True
+        return resp != None
 
     async def list_webhooks(self) -> str:
         response = await self.call(f"/webhooks")
@@ -78,39 +62,21 @@ class UP:
         response = await self.call(f"/webhooks/{webhook_id}", method= "delete")
         return response != None
 
-    async def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        async with self.call(path, params=params) as resp:
-            text = await resp.text()
-            if resp.status == 401:
-                raise UpdateFailed("Unauthorized (401). Check your Up API token.")
-            if resp.status >= 400:
-                raise UpdateFailed(f"Up API error {resp.status}: {text[:200]}")
-            # Attempt JSON decode only after status checks
-            return await resp.json()
-        
-    async def _post(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        url = f"{BASE_URL}{path}"
-        async with self._session.post(url, headers=self._headers, params=params) as resp:
-            text = await resp.text()
-            if resp.status == 401:
-                raise UpdateFailed("Unauthorized (401). Check your Up API token.")
-            if resp.status >= 400:
-                raise UpdateFailed(f"Up API error {resp.status}: {text[:200]}")
-            # Attempt JSON decode only after status checks
-            return await resp.json()
-
     async def get_accounts(self) -> Dict[str, Any]:
-        return await self._get("/accounts")
+        return await self.call("/accounts")
     
     async def get_account(self, accountID: str) -> Dict[str, Any]:
         return await self.call(f"/accounts/{accountID}")
 
     async def get_transactions(self, page_size: int = MAX_TX_PER_PAGE) -> Dict[str, Any]:
         # Most recent first; one page is plenty for dashboards & notifications.
-        return await self._get("/transactions", params={"page[size]": str(page_size)})
+        return await self.call("/transactions", params={"page[size]": str(page_size)})
 
     async def get_categories(self) -> Dict[str, Any]:
-        return await self._get("/categories")
+        return await self.call("/categories")
 
     async def get_tags(self) -> Dict[str, Any]:
-        return await self._get("/tags")
+        return await self.call("/tags")
+    
+    async def ping(self) -> bool:
+        return await self.call("/util/ping") != None
