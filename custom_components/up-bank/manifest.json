@@ -2,9 +2,9 @@
   "domain": "up-bank",
   "name": "Up Bank Integration for Home Assistant",
   "version": "0.4.0-custom",
-  "documentation": "https://github.com/yourusername/ha-up-bank",
+  "documentation": "https://github.com/DanielRobertson93/homeassistant-up-bank",
   "iot_class": "cloud_polling",
-  "codeowners": ["@yourusername"],
+  "codeowners": ["@DanielRobertson93"],
   "config_flow": true,
   "requirements": []
 }
