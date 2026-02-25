@@ -79,4 +79,8 @@ class UP:
         return await self.call("/tags")
     
     async def ping(self) -> bool:
-        return await self.call("/util/ping") != None
+        ping_response =  await self.call("/util/ping")
+        if ping_response != None:
+            return ping_response["meta"]["statusEmoji"] == "⚡️"
+        else:
+            return False
