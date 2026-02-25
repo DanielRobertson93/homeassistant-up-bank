@@ -6,3 +6,4 @@ __pycache__/
 
 custom_components/up-bank/testing.py
 custom_components/up-bank/exampleJson
+.vscode/settings.json
