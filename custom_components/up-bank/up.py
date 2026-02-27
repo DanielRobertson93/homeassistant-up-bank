@@ -9,8 +9,11 @@ MAX_TX_PER_PAGE = 50               # page size for /transactions
 BASE_URL = "https://api.up.com.au/api/v1"
 
 class UP:
-    def __init__(self, session: aiohttp.ClientSession):
+    def __init__(self, session: aiohttp.ClientSession, api_key):
         self._session = session
+        self._headers = {
+            "Authorization": f"Bearer {api_key}"
+        }
 
     async def call(self, endpoint, method="get", params=None, json=None):
         if params is None:
@@ -21,7 +24,7 @@ class UP:
         #async with async_get_clientsession(headers=headers) as session:
         # todo: add other branch to utilise clientsession from HA ^^
         try:
-            async with self._session.request(method=method, url=BASE_URL + endpoint, params=params, json=json) as resp:
+            async with self._session.request(method=method, url=BASE_URL + endpoint, headers=self._headers, params=params, json=json) as resp:
                 _LOGGER.debug(f"Received response status: {resp.status}")
                 
                 if resp.status == 401:

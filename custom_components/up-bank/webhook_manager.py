@@ -5,8 +5,7 @@ from homeassistant.helpers.network import get_url
 from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntry
 from aiohttp import web
-from coordinator import UpDataCoordinator
-
+from .coordinator import UpDataCoordinator
 from .const import DOMAIN
 from .up import UP
 

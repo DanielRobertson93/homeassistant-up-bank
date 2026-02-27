@@ -12,8 +12,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .webhook_manager import async_setup_webhook
 from .webhook_manager import async_delete_webhook
-from up import UP
-from coordinator import UpDataCoordinator
+from .up import UP
+from .coordinator import UpDataCoordinator
 
 DOMAIN = "up-bank"                 # must match folder name
 PLATFORMS: list[str] = ["sensor"]
@@ -37,8 +37,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not isinstance(refresh_min, int) or refresh_min <= 0:
         refresh_min = DEFAULT_REFRESH_MIN
 
-
-    api = UP(hass, api_key, session=async_get_clientsession(hass))
+    api = UP(session=async_get_clientsession(hass), api_key= api_key)
 
     coordinator = UpDataCoordinator(hass, api, timedelta(minutes=refresh_min))
 
@@ -48,10 +47,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady("Initial Up API fetch failed.")
     
     # Setup webhook
-    webhook_id = await async_setup_webhook(hass, entry, api)
+    # webhook_id = await async_setup_webhook(hass, entry, api)
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator, "api": api, "webhook_id": webhook_id}
+    hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator, "api": api}
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -65,7 +64,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     api_key = entry.data.get(CONF_API_KEY)
 
-    api = UP(hass, api_key, session=async_get_clientsession(hass))
+    api = UP(session=async_get_clientsession(hass), api_key= api_key)
 
     up_webhook_id = entry.data.get("up_webhook_id")
 

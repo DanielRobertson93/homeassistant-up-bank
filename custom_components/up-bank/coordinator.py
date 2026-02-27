@@ -10,7 +10,7 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
-from up import UP
+from .up import UP
 
 _LOGGER = logging.getLogger(__name__)
 

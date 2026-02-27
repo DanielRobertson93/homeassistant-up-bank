@@ -2,6 +2,7 @@ import logging
 from typing import Any
 from homeassistant import config_entries
 from homeassistant.const import CONF_API_KEY
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import voluptuous as vol
 from .const import DOMAIN
 from .up import UP
@@ -19,8 +20,10 @@ class UpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             api_key = user_input[CONF_API_KEY]
             try:
-                up = UP(hass=None,api_key=api_key)
-                info = await up.ping(api_key)
+                session = async_get_clientsession(self.hass)
+                up = UP(session=session, api_key= api_key)
+
+                info = await up.ping()
 
                 if info:
                     return self.async_create_entry(title="UP", data=user_input)
