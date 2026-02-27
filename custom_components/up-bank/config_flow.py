@@ -4,7 +4,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_API_KEY
 import voluptuous as vol
 from .const import DOMAIN
-from __init__ import UpApi
+from .up import UP
 
 DATA_SCHEMA = vol.Schema({
     vol.Required(CONF_API_KEY): str,
@@ -19,7 +19,7 @@ class UpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             api_key = user_input[CONF_API_KEY]
             try:
-                up = UpApi(hass=None,api_key=api_key)
+                up = UP(hass=None,api_key=api_key)
                 info = await up.ping(api_key)
 
                 if info:
