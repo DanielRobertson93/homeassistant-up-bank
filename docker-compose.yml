@@ -1,4 +1,3 @@
-version: '3'
 services:
   homeassistant:
     container_name: homeassistant
@@ -10,4 +9,5 @@ services:
       - ./custom_components/up-bank:/config/custom_components/up-bank/
     restart: unless-stopped
     privileged: true
-    network_mode: host
+    ports:
+      - '8124:8123'
