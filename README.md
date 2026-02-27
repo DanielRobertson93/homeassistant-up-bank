@@ -1,8 +1,8 @@
 Home Assistant Up Bank Integration forked from [here](https://github.com/jamespdat-spec/homeassistant-up-bank)
 
-This fork is still very much in development, definitely use the link above if you want a working version.
+This fork is still very much in development and may not function as intended.
 
-This integration will fetch details about all of your UP accounts, for you to use how you want. 
+This integration will fetch details about all of your UP accounts. 
 
 At the moment it refreshes once an hour to update balances. I'm adding looking to add webhook functionality for live updates.
 
