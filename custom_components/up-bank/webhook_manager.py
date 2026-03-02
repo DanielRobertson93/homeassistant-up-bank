@@ -11,7 +11,7 @@ from .up import UP
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_handle_webhook(hass, webhook_id, request):
+async def async_handle_webhook(hass: HomeAssistant, request):
     
     payload = await request.json()
 
@@ -64,6 +64,7 @@ async def async_setup_webhook(
             _LOGGER.warning("Failed checking existing webhook, recreating")
 
     # 4. Create webhook at Up
+    #callback_url = "https://140fc224-237f-474c-8f66-735f73447612.mock.pstmn.io"
     up_webhook_data = await api.create_webhook(callback_url)
 
     up_webhook_id = up_webhook_data["id"]
@@ -74,7 +75,10 @@ async def async_setup_webhook(
     # 5. Persist
     hass.config_entries.async_update_entry(
         entry,
-        data={**entry.data, "up_webhook_id": up_webhook_id, "ha_webhook_id": ha_webhook_id},
+        data={**entry.data, 
+              "up_webhook_id": up_webhook_id, 
+              "ha_webhook_id": ha_webhook_id, 
+              "up_secretKey": up_webhook_secret_key},
     )
 
     _LOGGER.info("Created Up webhook %s", up_webhook_id)

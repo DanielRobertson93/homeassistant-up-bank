@@ -15,14 +15,12 @@ class UP:
             "Authorization": f"Bearer {api_key}"
         }
 
-    async def call(self, endpoint, method="get", params=None, json=None):
+    async def call(self, endpoint, method="get", params=None, json=None) -> str:
         if params is None:
             params = {}
 
         _LOGGER.debug(f"Making {method.upper()} request to {BASE_URL + endpoint} with headers: {self._session.headers} and params: {params} and json: {json}")
         
-        #async with async_get_clientsession(headers=headers) as session:
-        # todo: add other branch to utilise clientsession from HA ^^
         try:
             async with self._session.request(method=method, url=BASE_URL + endpoint, headers=self._headers, params=params, json=json) as resp:
                 _LOGGER.debug(f"Received response status: {resp.status}")
@@ -33,6 +31,9 @@ class UP:
                 if resp.status not in {200, 201, 204}:
                     _LOGGER.error(f"Error: Received status code {resp.status}")
                     return None
+                
+                if method == "delete": # delete does not return content, so retun empty json
+                    return "{}"
                 
                 response_data = await resp.json()
                 _LOGGER.debug(f"Response JSON: {response_data}")
@@ -50,7 +51,7 @@ class UP:
                 }
             }
         }
-        resp = await self.call("/webhooks", method="post", params=None, json=data)
+        resp = await self.call("/webhooks", method="post", json=data)
         return resp["data"]
 
     async def webhook_exists(self, webhook_id: str) -> bool:

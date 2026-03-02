@@ -48,9 +48,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     # Setup webhook
     # webhook_id = await async_setup_webhook(hass, entry, api)
+    webhook_id = "12345"
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator, "api": api}
+    hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator, "api": api, "up-webhook-id": webhook_id}
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -68,7 +69,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     up_webhook_id = entry.data.get("up_webhook_id")
 
-    await async_delete_webhook(UP, up_webhook_id)
+    await async_delete_webhook(api, up_webhook_id)
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:

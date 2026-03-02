@@ -87,7 +87,7 @@ class UpDataCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             try: 
                 for account in refresh_accounts:
                     accounts_resp = await self.api.get_account(account)
-                    accounts_data["data"].append(accounts_resp["data"])\
+                    accounts_data["data"].append(accounts_resp["data"])
                     
             except Exception as exc:
                 raise UpdateFailed(f"Error fetching Up data: {exc}") from exc
