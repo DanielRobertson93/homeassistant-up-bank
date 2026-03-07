@@ -2,10 +2,8 @@ from __future__ import annotations
 from datetime import timedelta
 import asyncio
 import logging
-from datetime import timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -72,7 +70,7 @@ class UpDataCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         except Exception as exc:
             raise UpdateFailed(f"Error fetching Up data: {exc}") from exc
         
-        if transaction != None:
+        if transaction is not None:
             refresh_accounts = []
             transaction_account = transaction["data"]["relationships"]["account"]["data"]
 
@@ -80,7 +78,7 @@ class UpDataCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
             transfer_account = transaction["data"]["relationships"]["transferAccount"]["data"]
 
-            if transfer_account != None:
+            if transfer_account is not None:
                 refresh_accounts.append(transfer_account["id"])
 
             accounts_data = {"data" : []}

@@ -1,6 +1,6 @@
 import logging
 import aiohttp
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 _LOGGER = logging.getLogger(__name__)
 #_LOGGER.setLevel(logging.DEBUG)  # Ensure debug-level messages are logged
@@ -56,15 +56,15 @@ class UP:
 
     async def webhook_exists(self, webhook_id: str) -> bool:
         resp = await self.call(f"/webhooks/{webhook_id}/ping", method="post")
-        return resp != None
+        return resp is not None
 
     async def list_webhooks(self) -> str:
-        response = await self.call(f"/webhooks")
+        response = await self.call("/webhooks")
         return response
 
     async def delete_webhook(self, webhook_id: str) -> bool:
         response = await self.call(f"/webhooks/{webhook_id}", method= "delete")
-        return response != None
+        return response is not None
 
     async def get_accounts(self) -> Dict[str, Any]:
         return await self.call("/accounts")
@@ -84,7 +84,7 @@ class UP:
     
     async def ping(self) -> bool:
         ping_response =  await self.call("/util/ping")
-        if ping_response != None:
+        if ping_response is not None:
             return ping_response["meta"]["statusEmoji"] == "⚡️"
         else:
             return False
