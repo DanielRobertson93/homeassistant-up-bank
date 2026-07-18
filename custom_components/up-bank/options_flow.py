@@ -6,14 +6,11 @@ from typing import Any, Dict
 import voluptuous as vol
 from homeassistant import config_entries
 
-from . import DOMAIN, DEFAULT_REFRESH_MIN
+from .const import DOMAIN, DEFAULT_REFRESH_MIN
 
 
 class UpBankOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle Up Bank options."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
 
     async def async_step_init(self, user_input: Dict[str, Any] | None = None):
         if user_input is not None:

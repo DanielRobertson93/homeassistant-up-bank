@@ -43,59 +43,69 @@ class UpDataCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         categories = cats_resp.get("data") or []
         tags = tags_resp.get("data") or []
 
-        # Compute total balance safely
+        return {
+            "accounts": accounts,
+            "transactions": transactions,
+            "categories": categories,
+            "tags": tags,
+            "summary": self._summarize(accounts, transactions),
+        }
+
+    @staticmethod
+    def _summarize(accounts: list, transactions: list) -> Dict[str, Any]:
         total = 0.0
         for a in accounts:
             try:
                 total += float(a["attributes"]["balance"]["value"])
             except Exception:
                 continue
-
         return {
-            "accounts": accounts,
-            "transactions": transactions,
-            "categories": categories,
-            "tags": tags,
-            "summary": {
-                "total_balance": total,
-                "account_count": len(accounts),
-                "transaction_count": len(transactions),
-            },
+            "total_balance": total,
+            "account_count": len(accounts),
+            "transaction_count": len(transactions),
         }
-    
-    async def _async_partial_refresh_data(self, transactionID: str) -> Dict[str, Any]:
+
+    async def _async_partial_refresh_data(self, transaction_id: str) -> Dict[str, Any]:
+        """Refresh only the accounts and transaction touched by a webhook event.
+
+        Merges into the existing dataset rather than replacing it, so
+        categories/tags/other transactions survive a partial refresh.
+        """
+        try:
+            transaction_resp = await self.api.call(f"/transactions/{transaction_id}")
+        except Exception as exc:
+            raise UpdateFailed(f"Error fetching Up transaction: {exc}") from exc
+
+        if transaction_resp is None:
+            raise UpdateFailed(f"Up transaction {transaction_id} not found")
+
+        transaction = transaction_resp["data"]
+        relationships = transaction["relationships"]
+
+        account_ids = [relationships["account"]["data"]["id"]]
+        transfer_account = (relationships.get("transferAccount") or {}).get("data")
+        if transfer_account is not None:
+            account_ids.append(transfer_account["id"])
 
         try:
-            transaction = await self.api.call(f"/transactions/{transactionID}")
+            refreshed_accounts = {
+                account_id: (await self.api.get_account(account_id))["data"]
+                for account_id in account_ids
+            }
         except Exception as exc:
-            raise UpdateFailed(f"Error fetching Up data: {exc}") from exc
-        
-        if transaction is not None:
-            refresh_accounts = []
-            transaction_account = transaction["data"]["relationships"]["account"]["data"]
+            raise UpdateFailed(f"Error fetching Up account: {exc}") from exc
 
-            refresh_accounts.append(transaction_account["id"])
+        data = dict(self.data or {})
+        accounts = {a["id"]: a for a in data.get("accounts", [])}
+        accounts.update(refreshed_accounts)
 
-            transfer_account = transaction["data"]["relationships"]["transferAccount"]["data"]
+        transactions = [t for t in data.get("transactions", []) if t["id"] != transaction["id"]]
+        transactions.insert(0, transaction)
 
-            if transfer_account is not None:
-                refresh_accounts.append(transfer_account["id"])
-
-            accounts_data = {"data" : []}
-            try: 
-                for account in refresh_accounts:
-                    accounts_resp = await self.api.get_account(account)
-                    accounts_data["data"].append(accounts_resp["data"])
-                    
-            except Exception as exc:
-                raise UpdateFailed(f"Error fetching Up data: {exc}") from exc
-            
-            tx_resp = {"data" : [transaction["data"]]}
-        
-            accounts = accounts_data.get("data") or []
-            transactions = tx_resp.get("data") or []
-        
-            return {
-                    "accounts": accounts,
-                    "transactions": transactions,
-                    },
+        accounts_list = list(accounts.values())
+        data.update({
+            "accounts": accounts_list,
+            "transactions": transactions,
+            "summary": self._summarize(accounts_list, transactions),
+        })
+        return data

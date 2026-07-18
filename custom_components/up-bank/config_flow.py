@@ -6,6 +6,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import voluptuous as vol
 from .const import DOMAIN
 from .up import UP
+from .options_flow import UpBankOptionsFlowHandler
 
 DATA_SCHEMA = vol.Schema({
     vol.Required(CONF_API_KEY): str,
@@ -15,6 +16,11 @@ _LOGGER = logging.getLogger(__name__)
 class UpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
+
+    @staticmethod
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> UpBankOptionsFlowHandler:
+        return UpBankOptionsFlowHandler()
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         errors = {}
         if user_input is not None:

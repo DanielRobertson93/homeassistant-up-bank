@@ -15,12 +15,12 @@ class UP:
             "Authorization": f"Bearer {api_key}"
         }
 
-    async def call(self, endpoint, method="get", params=None, json=None) -> str:
+    async def call(self, endpoint, method="get", params=None, json=None):
         if params is None:
             params = {}
 
-        _LOGGER.debug(f"Making {method.upper()} request to {BASE_URL + endpoint} with headers: {self._session.headers} and params: {params} and json: {json}")
-        
+        _LOGGER.debug("Making %s request to %s with params: %s", method.upper(), BASE_URL + endpoint, params)
+
         try:
             async with self._session.request(method=method, url=BASE_URL + endpoint, headers=self._headers, params=params, json=json) as resp:
                 _LOGGER.debug(f"Received response status: {resp.status}")
@@ -29,7 +29,8 @@ class UP:
                     _LOGGER.error("Unauthorized: Invalid API Key")
                     return None
                 if resp.status not in {200, 201, 204}:
-                    _LOGGER.error(f"Error: Received status code {resp.status}")
+                    body = await resp.text()
+                    _LOGGER.error("Error: Received status code %s: %s", resp.status, body)
                     return None
                 
                 if method == "delete": # delete does not return content, so retun empty json
@@ -42,7 +43,7 @@ class UP:
             _LOGGER.error(f"Network error occurred: {e}")
             return None
 
-    async def create_webhook(self, callback_url: str) -> str:
+    async def create_webhook(self, callback_url: str) -> Dict[str, Any]:
         data = {
             "data": {
                 "attributes": {
@@ -52,6 +53,8 @@ class UP:
             }
         }
         resp = await self.call("/webhooks", method="post", json=data)
+        if resp is None:
+            raise RuntimeError(f"Up API rejected webhook creation for callback URL {callback_url}")
         return resp["data"]
 
     async def webhook_exists(self, webhook_id: str) -> bool:

@@ -14,11 +14,7 @@ from .webhook_manager import async_setup_webhook
 from .webhook_manager import async_delete_webhook
 from .up import UP
 from .coordinator import UpDataCoordinator
-
-DOMAIN = "up-bank"                 # must match folder name
-PLATFORMS: list[str] = ["sensor"]
-
-DEFAULT_REFRESH_MIN = 10           # safe default
+from .const import DOMAIN, PLATFORMS, DEFAULT_REFRESH_MIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,12 +42,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not coordinator.last_update_success:
         raise ConfigEntryNotReady("Initial Up API fetch failed.")
     
-    # Setup webhook
-    # webhook_id = await async_setup_webhook(hass, entry, api)
-    webhook_id = "12345"
+    # Webhooks are a nice-to-have, so try to setup if the user has a valid calback url for UP to use
+    try:
+        webhook_id = await async_setup_webhook(hass, entry, api)
+    except Exception:
+        _LOGGER.warning("Up webhook setup failed; continuing with polling only", exc_info=True)
+        webhook_id = None
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator, "api": api, "up-webhook-id": webhook_id}
+    hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator, "api": api, "up_webhook_id": webhook_id}
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -61,7 +60,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Clean up webhook
-    data = hass.data[DOMAIN][entry.entry_id]
 
     api_key = entry.data.get(CONF_API_KEY)
 
@@ -69,7 +67,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     up_webhook_id = entry.data.get("up_webhook_id")
 
-    await async_delete_webhook(api, up_webhook_id)
+    if up_webhook_id:
+        _LOGGER.debug("Deleting Up webhook %s", up_webhook_id)
+        await async_delete_webhook(api, up_webhook_id)
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
