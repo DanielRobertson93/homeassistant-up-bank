@@ -28,7 +28,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     # Summary sensors
     entities.append(UpTotalBalanceSensor(coordinator, entry))
     entities.append(UpAccountCountSensor(coordinator, entry))
-    entities.append(UpTransactionCountSensor(coordinator, entry))
+    entities.append(UpTransactionsTodaySensor(coordinator, entry))
+    entities.append(UpTransactionsThisWeekSensor(coordinator, entry))
+    entities.append(UpTransactionsThisMonthSensor(coordinator, entry))
 
     # Latest txn sensors (description, amount, time, category, tags)
     entities.append(UpLatestTxnDescriptionSensor(coordinator, entry))
@@ -112,16 +114,33 @@ class UpAccountCountSensor(_BaseUpSensor):
         return len(self.coordinator.data.get("accounts", []))
 
 
-class UpTransactionCountSensor(_BaseUpSensor):
-    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry) -> None:
+class _WindowedTransactionCountSensor(_BaseUpSensor):
+    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry, suffix: str, unique_suffix: str, summary_key: str) -> None:
         super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_transaction_count"
-        self._attr_name = "Up Transaction Count"
+        self._summary_key = summary_key
+        self._attr_unique_id = f"{entry.entry_id}_{unique_suffix}"
+        self._attr_name = f"Up Transactions {suffix}"
         self._attr_icon = "mdi:counter"
 
     @property
     def native_value(self) -> int | None:
-        return len(self.coordinator.data.get("transactions", []))
+        summary = self.coordinator.data.get("summary") or {}
+        return summary.get(self._summary_key)
+
+
+class UpTransactionsTodaySensor(_WindowedTransactionCountSensor):
+    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "Today", "transactions_today", "transactions_today")
+
+
+class UpTransactionsThisWeekSensor(_WindowedTransactionCountSensor):
+    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "This Week", "transactions_this_week", "transactions_this_week")
+
+
+class UpTransactionsThisMonthSensor(_WindowedTransactionCountSensor):
+    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "This Month", "transactions_this_month", "transactions_this_month")
 
 
 # ---------- Latest transaction ----------

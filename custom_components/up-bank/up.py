@@ -7,7 +7,8 @@ import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-MAX_TX_PER_PAGE = 50               # page size for /transactions
+MAX_TX_PER_PAGE = 50                # page size for /transactions
+MAX_PAGE_SIZE = 100                 # Up's documented max page[size]
 BASE_URL = "https://api.up.com.au/api/v1"
 
 class UP:
@@ -27,10 +28,13 @@ class UP:
         if params is None:
             params = {}
 
-        _LOGGER.debug("Making %s request to %s with params: %s", method.upper(), BASE_URL + endpoint, params)
+        # Pagination links from Up are already full URLs; everything else is a relative endpoint.
+        url = endpoint if endpoint.startswith("http") else BASE_URL + endpoint
+
+        _LOGGER.debug("Making %s request to %s with params: %s", method.upper(), url, params)
 
         try:
-            async with self._session.request(method=method, url=BASE_URL + endpoint, headers=self._headers, params=params, json=json) as resp:
+            async with self._session.request(method=method, url=url, headers=self._headers, params=params, json=json) as resp:
                 _LOGGER.debug("Received response status: %s", resp.status)
 
                 if resp.status == 401:
@@ -85,6 +89,26 @@ class UP:
     async def get_transactions(self, page_size: int = MAX_TX_PER_PAGE) -> dict[str, Any] | None:
         # Most recent first; one page is plenty for dashboards & notifications.
         return await self.call("/transactions", params={"page[size]": str(page_size)})
+
+    async def get_transactions_since(self, since_iso: str) -> list[dict[str, Any]] | None:
+        """Fetch every transaction from `since_iso` to now, following pagination.
+
+        Bounded by how many transactions occurred in that window (not full account
+        history), so this stays cheap for e.g. "since start of month" style queries.
+        """
+        resp = await self.call("/transactions", params={"filter[since]": since_iso, "page[size]": str(MAX_PAGE_SIZE)})
+        if resp is None:
+            return None
+
+        transactions: list[dict[str, Any]] = []
+        while resp is not None:
+            transactions.extend(resp.get("data") or [])
+            next_url = (resp.get("links") or {}).get("next")
+            if not next_url:
+                break
+            resp = await self.call(next_url)
+
+        return transactions
 
     async def get_categories(self) -> dict[str, Any] | None:
         return await self.call("/categories")

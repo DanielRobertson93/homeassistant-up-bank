@@ -8,6 +8,7 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
+from homeassistant.util import dt as dt_util
 from .up import UP
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,16 +44,19 @@ class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         categories = cats_resp.get("data") or []
         tags = tags_resp.get("data") or []
 
+        summary = self._summarize(accounts)
+        summary.update(await self._fetch_window_counts())
+
         return {
             "accounts": accounts,
             "transactions": transactions,
             "categories": categories,
             "tags": tags,
-            "summary": self._summarize(accounts, transactions),
+            "summary": summary,
         }
 
     @staticmethod
-    def _summarize(accounts: list, transactions: list) -> dict[str, Any]:
+    def _summarize(accounts: list) -> dict[str, Any]:
         total = 0.0
         for a in accounts:
             try:
@@ -62,7 +66,48 @@ class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return {
             "total_balance": total,
             "account_count": len(accounts),
-            "transaction_count": len(transactions),
+        }
+
+    async def _fetch_window_counts(self) -> dict[str, int]:
+        """Count transactions today / this week / this month.
+
+        One bounded fetch since the start of the month covers all three windows -
+        cheap regardless of account age, unlike walking full transaction history.
+        """
+        now = dt_util.now()
+        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_of_week = start_of_today - timedelta(days=now.weekday())
+        start_of_month = start_of_today.replace(day=1)
+
+        previous = (self.data or {}).get("summary", {})
+        fallback = {
+            key: previous.get(key, 0)
+            for key in ("transactions_today", "transactions_this_week", "transactions_this_month")
+        }
+
+        try:
+            month_transactions = await self.api.get_transactions_since(start_of_month.isoformat())
+        except Exception:
+            month_transactions = None
+
+        if month_transactions is None:
+            _LOGGER.warning("Failed fetching transaction window counts; keeping previous values")
+            return fallback
+
+        today_count = 0
+        week_count = 0
+        for tx in month_transactions:
+            created = dt_util.parse_datetime(tx["attributes"]["createdAt"])
+            if created is None or created < start_of_week:
+                continue
+            week_count += 1
+            if created >= start_of_today:
+                today_count += 1
+
+        return {
+            "transactions_today": today_count,
+            "transactions_this_week": week_count,
+            "transactions_this_month": len(month_transactions),
         }
 
     async def _async_partial_refresh_data(self, transaction_id: str) -> dict[str, Any]:
@@ -106,9 +151,12 @@ class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         transactions.insert(0, transaction)
 
         accounts_list = list(accounts.values())
+        summary = self._summarize(accounts_list)
+        summary.update(await self._fetch_window_counts())
+
         data.update({
             "accounts": accounts_list,
             "transactions": transactions,
-            "summary": self._summarize(accounts_list, transactions),
+            "summary": summary,
         })
         return data
