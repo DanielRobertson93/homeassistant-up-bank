@@ -7,7 +7,11 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
       - ./custom_components/up-bank:/config/custom_components/up-bank/
+      - ha_recorder:/recorder
     restart: unless-stopped
     privileged: true
     ports:
       - '8124:8123'
+
+volumes:
+  ha_recorder:
