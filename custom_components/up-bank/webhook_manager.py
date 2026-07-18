@@ -1,4 +1,7 @@
 from __future__ import annotations
+import hashlib
+import hmac
+import json
 import logging
 from typing import Any
 
@@ -13,11 +16,23 @@ from .up import UP
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_handle_webhook(hass: HomeAssistant, webhook_id: str, request: web.Request, entry_id: str) -> web.Response:
+def _verify_signature(secret_key: str, raw_body: bytes, signature: str) -> bool:
+    """Validate X-Up-Authenticity-Signature: SHA-256 HMAC of the raw body, keyed by the webhook secret."""
+    expected = hmac.new(secret_key.encode(), raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(signature, expected)
 
-    payload = await request.json()
+async def async_handle_webhook(hass: HomeAssistant, webhook_id: str, request: web.Request, entry: ConfigEntry) -> web.Response:
+    raw_body = await request.read()
 
-    hass.async_create_task(process_webhook_event(hass, payload, entry_id))
+    secret_key = entry.data.get("up_secretKey")
+    signature = request.headers.get("X-Up-Authenticity-Signature", "")
+    if not secret_key or not _verify_signature(secret_key, raw_body, signature):
+        _LOGGER.warning("Rejected Up webhook request with missing/invalid signature")
+        return web.Response(status=401)
+
+    payload = json.loads(raw_body)
+
+    hass.async_create_task(process_webhook_event(hass, payload, entry.entry_id))
 
     return web.Response(status=200)
 
@@ -27,10 +42,13 @@ async def process_webhook_event(hass: HomeAssistant, payload: dict[str, Any], en
 
     event_type = payload["data"]["attributes"]["eventType"]
 
-    if event_type == "TRANSACTION_DELETED":
+    if event_type == "PING":
+        _LOGGER.debug("Received Up webhook ping")
+    elif event_type == "TRANSACTION_DELETED":
         await coordinator.async_request_refresh()
     else:
-        transaction_id = payload["data"]["attributes"]["transaction"]["data"]["id"]
+        # TRANSACTION_CREATED / TRANSACTION_SETTLED
+        transaction_id = payload["data"]["relationships"]["transaction"]["data"]["id"]
         data = await coordinator._async_partial_refresh_data(transaction_id)
         coordinator.async_set_updated_data(data)
 
@@ -71,7 +89,7 @@ async def async_setup_webhook(
 
         up_webhook_id = up_webhook_data["id"]
 
-        # todo figure out how to save this secret key to use as auth whenever a webhook arrives
+        # Only returned at creation time; used later to verify X-Up-Authenticity-Signature.
         up_webhook_secret_key = up_webhook_data["attributes"]["secretKey"]
 
         # 5. Persist
@@ -87,7 +105,7 @@ async def async_setup_webhook(
 
     # 6. Register our handler so incoming requests to the callback URL reach us.
     async def _handler(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
-        return await async_handle_webhook(hass, webhook_id, request, entry.entry_id)
+        return await async_handle_webhook(hass, webhook_id, request, entry)
 
     webhook.async_register(hass, DOMAIN, "Up Bank", ha_webhook_id, _handler)
     entry.async_on_unload(lambda: webhook.async_unregister(hass, ha_webhook_id))
