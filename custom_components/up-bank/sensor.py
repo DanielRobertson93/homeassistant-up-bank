@@ -1,6 +1,7 @@
 """Sensors for Up Bank: per-account balances, totals, and latest txn info."""
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
@@ -12,6 +13,15 @@ from homeassistant.util import slugify
 from .coordinator import UpDataCoordinator
 from .const import DOMAIN
 
+_2UP_PREFIX_RE = re.compile(r"^2up[:\s-]*", re.IGNORECASE)
+
+
+def _strip_2up_prefix(name: str) -> str:
+    """Up's own displayName sometimes already leads with '2up' - normalize it away
+    so our own prefix is applied consistently regardless of Up's naming."""
+    return _2UP_PREFIX_RE.sub("", name).strip() or name
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities) -> None:
     wrapper = hass.data[DOMAIN][entry.entry_id]
     coordinator: UpDataCoordinator = wrapper["coordinator"]
@@ -19,25 +29,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     entities: list[SensorEntity] = []
 
     # Per-account balances
+    ownership_types_present: set[str] = set()
     for acct in coordinator.data.get("accounts", []):
         acct_id = acct.get("id")
-        display_name = (acct.get("attributes") or {}).get("displayName") or "Up Account"
+        attributes = acct.get("attributes") or {}
+        display_name = attributes.get("displayName") or "Up Account"
+        ownership_type = attributes.get("ownershipType")
+        ownership_types_present.add(ownership_type)
         if acct_id:
-            entities.append(UpAccountBalanceSensor(coordinator, entry, acct_id, display_name))
+            entities.append(UpAccountBalanceSensor(coordinator, entry, acct_id, display_name, ownership_type))
 
-    # Summary sensors
+    # Summary sensors (whole-of-account aggregates, not split by ownership type)
     entities.append(UpTotalBalanceSensor(coordinator, entry))
     entities.append(UpAccountCountSensor(coordinator, entry))
     entities.append(UpTransactionsTodaySensor(coordinator, entry))
     entities.append(UpTransactionsThisWeekSensor(coordinator, entry))
     entities.append(UpTransactionsThisMonthSensor(coordinator, entry))
 
-    # Latest txn sensors (description, amount, time, category, tags)
-    entities.append(UpLatestTxnDescriptionSensor(coordinator, entry))
-    entities.append(UpLatestTxnAmountSensor(coordinator, entry))
-    entities.append(UpLatestTxnTimeSensor(coordinator, entry))
-    entities.append(UpLatestTxnCategorySensor(coordinator, entry))
-    entities.append(UpLatestTxnTagsSensor(coordinator, entry))
+    # Latest txn sensors, one set per ownership type actually present
+    for ownership_type in ("INDIVIDUAL", "JOINT"):
+        if ownership_type not in ownership_types_present:
+            continue
+        entities.append(UpLatestTxnDescriptionSensor(coordinator, entry, ownership_type))
+        entities.append(UpLatestTxnAmountSensor(coordinator, entry, ownership_type))
+        entities.append(UpLatestTxnTimeSensor(coordinator, entry, ownership_type))
+        entities.append(UpLatestTxnCategorySensor(coordinator, entry, ownership_type))
+        entities.append(UpLatestTxnTagsSensor(coordinator, entry, ownership_type))
 
     async_add_entities(entities, update_before_add=True)
 
@@ -46,30 +63,50 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class _BaseUpSensor(CoordinatorEntity[UpDataCoordinator], SensorEntity):
     _attr_should_poll = False
 
-    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry) -> None:
+    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry, is_joint: bool = False) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name="Up Bank",
-            manufacturer="Up",
-        )
+        if is_joint:
+            self._attr_device_info = DeviceInfo(
+                identifiers={(DOMAIN, f"{entry.entry_id}_2up")},
+                name="Up Bank (2Up)",
+                manufacturer="Up",
+            )
+        else:
+            self._attr_device_info = DeviceInfo(
+                identifiers={(DOMAIN, entry.entry_id)},
+                name="Up Bank",
+                manufacturer="Up",
+            )
 
 
 # ---------- Per-account ----------
 class UpAccountBalanceSensor(_BaseUpSensor):
     """Balance for a specific account."""
 
-    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry, account_id: str, display_name: str) -> None:
-        super().__init__(coordinator, entry)
-        slug = slugify(display_name) or account_id
+    def __init__(
+        self,
+        coordinator: UpDataCoordinator,
+        entry: ConfigEntry,
+        account_id: str,
+        display_name: str,
+        ownership_type: str | None,
+    ) -> None:
+        is_joint = ownership_type == "JOINT"
+        super().__init__(coordinator, entry, is_joint=is_joint)
+        clean_name = _strip_2up_prefix(display_name)
+        slug = slugify(clean_name) or account_id
         self._account_id = account_id
         self._attr_unique_id = f"{entry.entry_id}_acct_{account_id}_balance"
-        self._attr_name = f"{display_name} Balance"
         self._attr_icon = "mdi:bank"
         self._attr_native_unit_of_measurement = "AUD"
-        # Provide a friendly default entity_id like sensor.spending_balance
-        self.entity_id = f"sensor.{slug}_balance"
+        if is_joint:
+            self._attr_name = f"2Up {clean_name} Balance"
+            self.entity_id = f"sensor.2up_{slug}_balance"
+        else:
+            self._attr_name = f"{clean_name} Balance"
+            # Provide a friendly default entity_id like sensor.spending_balance
+            self.entity_id = f"sensor.{slug}_balance"
 
     @property
     def native_value(self) -> float | None:
@@ -143,23 +180,42 @@ class UpTransactionsThisMonthSensor(_WindowedTransactionCountSensor):
         super().__init__(coordinator, entry, "This Month", "transactions_this_month", "transactions_this_month")
 
 
-# ---------- Latest transaction ----------
+# ---------- Latest transaction (per ownership type) ----------
 class _LatestTxnBase(_BaseUpSensor):
-    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry, suffix: str, unique_suffix: str, icon: str) -> None:
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_latest_txn_{unique_suffix}"
-        self._attr_name = f"Up Latest Transaction {suffix}"
+    def __init__(
+        self,
+        coordinator: UpDataCoordinator,
+        entry: ConfigEntry,
+        ownership_type: str,
+        suffix: str,
+        unique_suffix: str,
+        icon: str,
+    ) -> None:
+        is_joint = ownership_type == "JOINT"
+        super().__init__(coordinator, entry, is_joint=is_joint)
+        self._ownership_type = ownership_type
+        id_prefix = "2up_" if is_joint else ""
+        name_prefix = "2Up " if is_joint else "Up "
+        self._attr_unique_id = f"{entry.entry_id}_latest_txn_{id_prefix}{unique_suffix}"
+        self._attr_name = f"{name_prefix}Latest Transaction {suffix}"
         self._attr_icon = icon
 
     @property
     def _latest(self) -> dict[str, Any] | None:
-        tx = self.coordinator.data.get("transactions", [])
-        return tx[0] if tx else None
+        ownership = {
+            a["id"]: (a.get("attributes") or {}).get("ownershipType")
+            for a in self.coordinator.data.get("accounts", [])
+        }
+        for tx in self.coordinator.data.get("transactions", []):
+            rel = ((tx.get("relationships") or {}).get("account") or {}).get("data") or {}
+            if ownership.get(rel.get("id")) == self._ownership_type:
+                return tx
+        return None
 
 
 class UpLatestTxnDescriptionSensor(_LatestTxnBase):
-    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Description", "description", "mdi:text")
+    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry, ownership_type: str) -> None:
+        super().__init__(coordinator, entry, ownership_type, "Description", "description", "mdi:text")
 
     @property
     def native_value(self) -> str | None:
@@ -170,8 +226,8 @@ class UpLatestTxnDescriptionSensor(_LatestTxnBase):
 
 
 class UpLatestTxnAmountSensor(_LatestTxnBase):
-    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Amount", "amount", "mdi:cash")
+    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry, ownership_type: str) -> None:
+        super().__init__(coordinator, entry, ownership_type, "Amount", "amount", "mdi:cash")
         self._attr_native_unit_of_measurement = "AUD"
 
     @property
@@ -186,8 +242,8 @@ class UpLatestTxnAmountSensor(_LatestTxnBase):
 
 
 class UpLatestTxnTimeSensor(_LatestTxnBase):
-    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Time", "time", "mdi:clock-outline")
+    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry, ownership_type: str) -> None:
+        super().__init__(coordinator, entry, ownership_type, "Time", "time", "mdi:clock-outline")
 
     @property
     def native_value(self) -> str | None:
@@ -198,8 +254,8 @@ class UpLatestTxnTimeSensor(_LatestTxnBase):
 
 
 class UpLatestTxnCategorySensor(_LatestTxnBase):
-    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Category", "category", "mdi:shape-outline")
+    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry, ownership_type: str) -> None:
+        super().__init__(coordinator, entry, ownership_type, "Category", "category", "mdi:shape-outline")
 
     @property
     def native_value(self) -> str | None:
@@ -212,8 +268,8 @@ class UpLatestTxnCategorySensor(_LatestTxnBase):
 
 
 class UpLatestTxnTagsSensor(_LatestTxnBase):
-    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "Tags", "tags", "mdi:tag-multiple")
+    def __init__(self, coordinator: UpDataCoordinator, entry: ConfigEntry, ownership_type: str) -> None:
+        super().__init__(coordinator, entry, ownership_type, "Tags", "tags", "mdi:tag-multiple")
 
     @property
     def native_value(self) -> str | None:
