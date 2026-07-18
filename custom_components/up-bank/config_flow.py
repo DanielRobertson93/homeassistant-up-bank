@@ -15,7 +15,6 @@ _LOGGER = logging.getLogger(__name__)
 
 class UpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     @staticmethod
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> UpBankOptionsFlowHandler:
@@ -27,7 +26,7 @@ class UpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             api_key = user_input[CONF_API_KEY]
             try:
                 session = async_get_clientsession(self.hass)
-                up = UP(session=session, api_key= api_key)
+                up = UP(session=session, api_key=api_key)
 
                 info = await up.ping()
 

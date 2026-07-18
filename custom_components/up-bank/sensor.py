@@ -1,7 +1,7 @@
 """Sensors for Up Bank: per-account balances, totals, and latest txn info."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -16,7 +16,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     wrapper = hass.data[DOMAIN][entry.entry_id]
     coordinator: UpDataCoordinator = wrapper["coordinator"]
 
-    entities: List[SensorEntity] = []
+    entities: list[SensorEntity] = []
 
     # Per-account balances
     for acct in coordinator.data.get("accounts", []):
@@ -70,7 +70,7 @@ class UpAccountBalanceSensor(_BaseUpSensor):
         self.entity_id = f"sensor.{slug}_balance"
 
     @property
-    def native_value(self) -> Optional[float]:
+    def native_value(self) -> float | None:
         for acct in self.coordinator.data.get("accounts", []):
             if acct.get("id") == self._account_id:
                 try:
@@ -91,7 +91,7 @@ class UpTotalBalanceSensor(_BaseUpSensor):
         self.entity_id = "sensor.up_total_balance"
 
     @property
-    def native_value(self) -> Optional[float]:
+    def native_value(self) -> float | None:
         summary = self.coordinator.data.get("summary") or {}
         val = summary.get("total_balance")
         try:
@@ -108,7 +108,7 @@ class UpAccountCountSensor(_BaseUpSensor):
         self._attr_icon = "mdi:counter"
 
     @property
-    def native_value(self) -> Optional[int]:
+    def native_value(self) -> int | None:
         return len(self.coordinator.data.get("accounts", []))
 
 
@@ -120,7 +120,7 @@ class UpTransactionCountSensor(_BaseUpSensor):
         self._attr_icon = "mdi:counter"
 
     @property
-    def native_value(self) -> Optional[int]:
+    def native_value(self) -> int | None:
         return len(self.coordinator.data.get("transactions", []))
 
 
@@ -133,7 +133,7 @@ class _LatestTxnBase(_BaseUpSensor):
         self._attr_icon = icon
 
     @property
-    def _latest(self) -> Optional[Dict[str, Any]]:
+    def _latest(self) -> dict[str, Any] | None:
         tx = self.coordinator.data.get("transactions", [])
         return tx[0] if tx else None
 
@@ -143,7 +143,7 @@ class UpLatestTxnDescriptionSensor(_LatestTxnBase):
         super().__init__(coordinator, entry, "Description", "description", "mdi:text")
 
     @property
-    def native_value(self) -> Optional[str]:
+    def native_value(self) -> str | None:
         lt = self._latest
         if not lt:
             return None
@@ -156,7 +156,7 @@ class UpLatestTxnAmountSensor(_LatestTxnBase):
         self._attr_native_unit_of_measurement = "AUD"
 
     @property
-    def native_value(self) -> Optional[float]:
+    def native_value(self) -> float | None:
         lt = self._latest
         if not lt:
             return None
@@ -171,7 +171,7 @@ class UpLatestTxnTimeSensor(_LatestTxnBase):
         super().__init__(coordinator, entry, "Time", "time", "mdi:clock-outline")
 
     @property
-    def native_value(self) -> Optional[str]:
+    def native_value(self) -> str | None:
         lt = self._latest
         if not lt:
             return None
@@ -183,7 +183,7 @@ class UpLatestTxnCategorySensor(_LatestTxnBase):
         super().__init__(coordinator, entry, "Category", "category", "mdi:shape-outline")
 
     @property
-    def native_value(self) -> Optional[str]:
+    def native_value(self) -> str | None:
         lt = self._latest
         if not lt:
             return None
@@ -197,7 +197,7 @@ class UpLatestTxnTagsSensor(_LatestTxnBase):
         super().__init__(coordinator, entry, "Tags", "tags", "mdi:tag-multiple")
 
     @property
-    def native_value(self) -> Optional[str]:
+    def native_value(self) -> str | None:
         lt = self._latest
         if not lt:
             return None

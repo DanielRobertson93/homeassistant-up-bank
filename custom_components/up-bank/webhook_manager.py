@@ -1,5 +1,7 @@
 from __future__ import annotations
 import logging
+from typing import Any
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.network import get_url
 from homeassistant.components import webhook
@@ -11,7 +13,7 @@ from .up import UP
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_handle_webhook(hass: HomeAssistant, webhook_id: str, request, entry_id: str):
+async def async_handle_webhook(hass: HomeAssistant, webhook_id: str, request: web.Request, entry_id: str) -> web.Response:
 
     payload = await request.json()
 
@@ -19,7 +21,7 @@ async def async_handle_webhook(hass: HomeAssistant, webhook_id: str, request, en
 
     return web.Response(status=200)
 
-async def process_webhook_event(hass, payload, entry_id):
+async def process_webhook_event(hass: HomeAssistant, payload: dict[str, Any], entry_id: str) -> None:
 
     coordinator: UpDataCoordinator = hass.data[DOMAIN][entry_id]["coordinator"]
 
@@ -28,8 +30,8 @@ async def process_webhook_event(hass, payload, entry_id):
     if event_type == "TRANSACTION_DELETED":
         await coordinator.async_request_refresh()
     else:
-        transactionID = payload["data"]["attributes"]["transaction"]["data"]["id"]
-        data = await coordinator._async_partial_refresh_data(transactionID)
+        transaction_id = payload["data"]["attributes"]["transaction"]["data"]["id"]
+        data = await coordinator._async_partial_refresh_data(transaction_id)
         coordinator.async_set_updated_data(data)
 
 async def async_setup_webhook(
@@ -84,7 +86,7 @@ async def async_setup_webhook(
         _LOGGER.info("Created Up webhook %s", up_webhook_id)
 
     # 6. Register our handler so incoming requests to the callback URL reach us.
-    async def _handler(hass: HomeAssistant, webhook_id: str, request):
+    async def _handler(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
         return await async_handle_webhook(hass, webhook_id, request, entry.entry_id)
 
     webhook.async_register(hass, DOMAIN, "Up Bank", ha_webhook_id, _handler)

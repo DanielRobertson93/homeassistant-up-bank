@@ -2,7 +2,6 @@
 from __future__ import annotations
 import logging
 from datetime import timedelta
-from typing import Any, Dict, Optional
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -24,7 +23,7 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
     await hass.config_entries.async_reload(entry.entry_id)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    api_key = entry.data.get(CONF_API_KEY) or entry.data.get("token") or entry.data.get("api_key")
+    api_key = entry.data.get(CONF_API_KEY)
 
     if not api_key:
         raise ConfigEntryNotReady("No API token found in config entry.")
@@ -33,7 +32,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not isinstance(refresh_min, int) or refresh_min <= 0:
         refresh_min = DEFAULT_REFRESH_MIN
 
-    api = UP(session=async_get_clientsession(hass), api_key= api_key)
+    api = UP(session=async_get_clientsession(hass), api_key=api_key)
 
     coordinator = UpDataCoordinator(hass, api, timedelta(minutes=refresh_min))
 
@@ -63,7 +62,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     api_key = entry.data.get(CONF_API_KEY)
 
-    api = UP(session=async_get_clientsession(hass), api_key= api_key)
+    api = UP(session=async_get_clientsession(hass), api_key=api_key)
 
     up_webhook_id = entry.data.get("up_webhook_id")
 

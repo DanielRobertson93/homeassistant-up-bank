@@ -1,18 +1,18 @@
 """Options UI for Up Bank (set refresh interval)."""
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
 
-from .const import DOMAIN, DEFAULT_REFRESH_MIN
+from .const import DEFAULT_REFRESH_MIN
 
 
 class UpBankOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle Up Bank options."""
 
-    async def async_step_init(self, user_input: Dict[str, Any] | None = None):
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 

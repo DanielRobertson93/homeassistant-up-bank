@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import timedelta
 import asyncio
 import logging
-from typing import Any, Dict
+from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -14,7 +14,7 @@ _LOGGER = logging.getLogger(__name__)
 
 MAX_TX_PER_PAGE = 50 # page size for /transactions
 
-class UpDataCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
+class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Fetch accounts, recent transactions, categories, tags on a schedule. Handle partial refreshes trigggered by webhook events"""
 
     def __init__(self, hass: HomeAssistant, api: UP, update_interval: timedelta = 5) -> None:
@@ -26,7 +26,7 @@ class UpDataCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         )
         self.api = api
 
-    async def _async_update_data(self) -> Dict[str, Any]:
+    async def _async_update_data(self) -> dict[str, Any]:
         try:
             # Fetch concurrently while staying very cheap (4 requests per cycle).
             accounts_resp, tx_resp, cats_resp, tags_resp = await asyncio.gather(
@@ -52,7 +52,7 @@ class UpDataCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         }
 
     @staticmethod
-    def _summarize(accounts: list, transactions: list) -> Dict[str, Any]:
+    def _summarize(accounts: list, transactions: list) -> dict[str, Any]:
         total = 0.0
         for a in accounts:
             try:
@@ -65,7 +65,7 @@ class UpDataCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             "transaction_count": len(transactions),
         }
 
-    async def _async_partial_refresh_data(self, transaction_id: str) -> Dict[str, Any]:
+    async def _async_partial_refresh_data(self, transaction_id: str) -> dict[str, Any]:
         """Refresh only the accounts and transaction touched by a webhook event.
 
         Merges into the existing dataset rather than replacing it, so
@@ -79,13 +79,16 @@ class UpDataCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         if transaction_resp is None:
             raise UpdateFailed(f"Up transaction {transaction_id} not found")
 
-        transaction = transaction_resp["data"]
-        relationships = transaction["relationships"]
+        try:
+            transaction = transaction_resp["data"]
+            relationships = transaction["relationships"]
 
-        account_ids = [relationships["account"]["data"]["id"]]
-        transfer_account = (relationships.get("transferAccount") or {}).get("data")
-        if transfer_account is not None:
-            account_ids.append(transfer_account["id"])
+            account_ids = [relationships["account"]["data"]["id"]]
+            transfer_account = (relationships.get("transferAccount") or {}).get("data")
+            if transfer_account is not None:
+                account_ids.append(transfer_account["id"])
+        except KeyError as exc:
+            raise UpdateFailed(f"Unexpected Up transaction payload shape: {exc}") from exc
 
         try:
             refreshed_accounts = {
