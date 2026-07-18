@@ -22,4 +22,4 @@ The easiest way is to install via HACS, see https://github.com/hacs/integration 
 10. Enter the API key on the config screen
 
 # Development
-There is an included a docker-compose file with mapping, so make sure you have docker, and docker-compose installed. Then you can start it with `docker-compose up -d`. Every time you change the files you will need to restart the server inside the HA GUI for the changes to kick in.
+There is an included a docker-compose file with mapping, so make sure you have docker, and docker-compose installed. Then you can start it with `docker compose up -d`. Every time you change the files you will need to restart the server inside the HA GUI for the changes to kick in.
