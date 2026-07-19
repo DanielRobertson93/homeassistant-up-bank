@@ -5,9 +5,7 @@ Uses the Up bank API [docs](https://developer.up.com.au), [github](https://githu
 Webhook updates are now supported!
 
 ## Getting an external URL for webhooks
-Up needs to reach your Home Assistant instance over the internet (HTTPS) to deliver webhook events. If it can't, the
-integration still works fine on polling alone - webhooks are a nice-to-have for near-real-time updates, not a
-requirement. A few ways to get that external URL, roughly from least to most effort:
+A few ways to get that external URL:
 
 - **Home Assistant Cloud (Nabu Casa)** - the official, supported option if you're already a subscriber. Gives you a
   stable HTTPS URL with no networking setup at all. Easiest choice if you have it.
