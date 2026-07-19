@@ -1,10 +1,22 @@
 Home Assistant Up Bank Integration forked from [here](https://github.com/jamespdat-spec/homeassistant-up-bank)
 
-This fork is still very much in development and may not function as intended.
+Uses the Up bank API [docs](https://developer.up.com.au), [github](https://github.com/up-banking/api), to pull account balances and latest transaction information.
 
-This integration will fetch details about all of your UP accounts. 
+Webhook updates are now supported!
 
-At the moment it refreshes once an hour to update balances. I'm adding looking to add webhook functionality for live updates.
+## Getting an external URL for webhooks
+Up needs to reach your Home Assistant instance over the internet (HTTPS) to deliver webhook events. If it can't, the
+integration still works fine on polling alone - webhooks are a nice-to-have for near-real-time updates, not a
+requirement. A few ways to get that external URL, roughly from least to most effort:
+
+- **Home Assistant Cloud (Nabu Casa)** - the official, supported option if you're already a subscriber. Gives you a
+  stable HTTPS URL with no networking setup at all. Easiest choice if you have it.
+- **Tailscale Funnel** - what I used for testing (see `docker-compose.yml`/`config/configuration.yaml`).
+- Cloudflare Tunnel 
+- ngrok
+
+Whichever you pick, set it as HA's `external_url` (Settings -> System -> Network, or `external_url:` under `homeassistant:`
+in `configuration.yaml`) so the integration knows what URL to register with Up.
 
 # Installation
 The easiest way is to install via HACS, see https://github.com/hacs/integration to install HACS in your Home Assistant install if you haven't already.
@@ -16,7 +28,7 @@ The easiest way is to install via HACS, see https://github.com/hacs/integration 
 4. Explore and Download
 5. Search for HA UP in the list at the top and install this integration - it will have the little Up logo
 6. Restart Home Assistant
-7. Go to regular e.g. Integrations (e.g. Settings -> Devices &amp; Services -> (ADD INTEGRATION) _(bottom right)_
+7. Go to regular e.g. Integrations (e.g. Settings -> Devices & Services -> (ADD INTEGRATION) _(bottom right)_
 8. Search for and add Up Bank for Home Assistant - click the three small dots on the right of the line and choose DOWNLOAD
 9. Get your UP API key from: https://api.up.com.au/getting_started
 10. Enter the API key on the config screen
