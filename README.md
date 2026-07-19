@@ -1,8 +1,18 @@
 Home Assistant Up Bank Integration forked from [here](https://github.com/jamespdat-spec/homeassistant-up-bank)
 
-Uses the Up bank API [docs](https://developer.up.com.au), [github](https://github.com/up-banking/api), to pull account balances and latest transaction information.
+Uses the Up bank API [docs](https://developer.up.com.au), [github](https://github.com/up-banking/api), to pull account balances and latest transaction information. Leverages Up API's webhooks for pushed data.
 
-Webhook updates are now supported!
+## Upgrading from a pre-0.5.0 version (domain rename)
+As of 0.5.0 the integration's domain changed from `up-bank` to `up_bank` (the hyphen caused a string of tooling/frontend quirks - notably Home Assistant's brand-icon proxy silently 404ing for hyphenated custom integration domains). This is a one-time breaking change: HA ties a config entry to its domain, so upgrading in place isn't possible.
+
+To upgrade:
+1. Update to 0.5.0+ via HACS as normal.
+2. Go to Settings -> Devices & Services, find the (now broken) old Up Bank entry, and delete it.
+3. Add the integration again fresh (Settings -> Devices & Services -> Add Integration -> Up Bank) and re-enter your API key.
+
+Your sensor entity IDs (e.g. `sensor.up_total_balance`) are set explicitly by the integration and don't contain the domain string, so history, dashboards, and automations referencing them keep working across this migration untouched - only the API key needs re-entering.
+
+# Webhook updates are now supported!
 
 ## Getting an external URL for webhooks
 A few ways to get that external URL:
@@ -40,5 +50,5 @@ This repo uses `ruff` (lint + format) and `mypy` (type checking), configured in 
 ```
 ruff check --fix .   # lint
 ruff format .        # format
-mypy                 # type check (reads pyproject.toml, resolves through the symlink)
+mypy                 # type check (reads pyproject.toml)
 ```
