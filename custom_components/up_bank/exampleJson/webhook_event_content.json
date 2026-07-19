@@ -1,0 +1,30 @@
+{
+    "data": {
+        "id": "398396a8-3f08-4767-a022-580940cafe25",
+        "type": "webhook-events",
+        "attributes": {
+            "createdAt": "2026-02-20T06:56:35+08:00",
+            "eventType": "TRANSACTION_CREATED"
+        },
+        "relationships": {
+            "webhook": {
+                "data": {
+                    "id": "b20e4bee-679c-4121-bcf4-8c8f5770fe4d",
+                    "type": "webhooks"
+                },
+                "links": {
+                    "related": "https://api.up.com.au/api/v1/webhooks/b20e4bee-679c-4121-bcf4-8c8f5770fe4d"
+                }
+            },
+            "transaction": {
+                "data": {
+                    "id": "ea8ed0ed-e6cb-4779-b5d1-922b94f2a54f",
+                    "type": "transactions"
+                },
+                "links": {
+                    "related": "https://api.up.com.au/api/v1/transactions/ea8ed0ed-e6cb-4779-b5d1-922b94f2a54f"
+                }
+            }
+        }
+    }
+}

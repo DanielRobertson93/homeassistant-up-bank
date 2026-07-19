@@ -2,7 +2,7 @@
 target-version = "py313"
 line-length = 88
 exclude = [
-    "custom_components/up-bank/exampleJson",
+    "custom_components/up_bank/exampleJson",
     ".venv",
 ]
 

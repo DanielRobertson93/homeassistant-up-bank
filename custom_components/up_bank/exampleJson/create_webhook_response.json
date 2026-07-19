@@ -1,0 +1,22 @@
+{
+    "data": {
+        "type": "webhooks",
+        "id": "b20e4bee-679c-4121-bcf4-8c8f5770fe4d",
+        "attributes": {
+            "url": "https://140fc224-237f-474c-8f66-735f73447612.mock.pstmn.io",
+            "description": "Home Assistant",
+            "secretKey": "E9CUKwT1N3uyY2Vmf9bnEkCjM9UwBfVaXL2biEAY0dpnLwCVyKuwYaGSrLjs5KDs",
+            "createdAt": "2026-02-19T10:06:49+11:00"
+        },
+        "relationships": {
+            "logs": {
+                "links": {
+                    "related": "https://api.up.com.au/api/v1/webhooks/b20e4bee-679c-4121-bcf4-8c8f5770fe4d/logs"
+                }
+            }
+        },
+        "links": {
+            "self": "https://api.up.com.au/api/v1/webhooks/b20e4bee-679c-4121-bcf4-8c8f5770fe4d"
+        }
+    }
+}

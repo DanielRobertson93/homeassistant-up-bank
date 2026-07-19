@@ -1,0 +1,46 @@
+{
+    "data": [
+        {
+            "type": "webhooks",
+            "id": "9f9253b5-25dc-4067-9c5a-4ac513152a96",
+            "attributes": {
+                "url": "https: //140fc224-237f-474c-8f66-735f73447612.mock.pstmn.io",
+                "description": "Home Assistant",
+                "createdAt": "2026-02-21T11:36:46+11:00"
+            },
+            "relationships": {
+                "logs": {
+                    "links": {
+                        "related": "https://api.up.com.au/api/v1/webhooks/9f9253b5-25dc-4067-9c5a-4ac513152a96/logs"
+                    }
+                }
+            },
+            "links": {
+                "self": "https://api.up.com.au/api/v1/webhooks/9f9253b5-25dc-4067-9c5a-4ac513152a96"
+            }
+        },
+        {
+            "type": "webhooks",
+            "id": "2520803c-ba81-405b-aa71-8db642083250",
+            "attributes": {
+                "url": "https://140fc224-237f-474c-8f66-735f73447612.mock.pstmn.io",
+                "description": "Home Assistant",
+                "createdAt": "2026-02-21T11:45:40+11:00"
+            },
+            "relationships": {
+                "logs": {
+                    "links": {
+                        "related": "https://api.up.com.au/api/v1/webhooks/2520803c-ba81-405b-aa71-8db642083250/logs"
+                    }
+                }
+            },
+            "links": {
+                "self": "https://api.up.com.au/api/v1/webhooks/2520803c-ba81-405b-aa71-8db642083250"
+            }
+        }
+    ],
+    "links": {
+        "prev": None,
+        "next": None
+    }
+}

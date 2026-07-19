@@ -6,7 +6,7 @@ services:
       - ./config:/config
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
-      - ./custom_components/up-bank:/config/custom_components/up-bank/
+      - ./custom_components/up_bank:/config/custom_components/up_bank/
       - ha_recorder:/recorder
     restart: unless-stopped
     privileged: true
