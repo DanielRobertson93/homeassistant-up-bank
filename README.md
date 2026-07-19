@@ -23,3 +23,19 @@ The easiest way is to install via HACS, see https://github.com/hacs/integration 
 
 # Development
 There is an included a docker-compose file with mapping, so make sure you have docker, and docker-compose installed. Then you can start it with `docker compose up -d`. Every time you change the files you will need to restart the server inside the HA GUI for the changes to kick in.
+
+## Tooling (ruff, mypy)
+This repo uses `ruff` (lint + format) and `mypy` (type checking), configured in `pyproject.toml`.
+
+**`custom_components/up_bank` is a symlink to `custom_components/up-bank`.** It exists only so mypy can resolve
+relative imports (`.const`, `.up`, etc.) - mypy's package-name validation rejects hyphens, so without it
+mypy can't see across files in this integration at all. The domain intentionally stays `up-bank` (matching
+the folder name and the original upstream integration this was forked from) so existing installs - including
+production instances still on upstream - aren't broken by a domain change. The symlink is dev-tooling only;
+it's never referenced by any runtime code and isn't something HA itself ever sees.
+
+```
+ruff check --fix .   # lint
+ruff format .        # format
+mypy                 # type check (reads pyproject.toml, resolves through the symlink)
+```
