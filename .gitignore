@@ -1,6 +1,9 @@
 #HA Config folder
 config/
 
+# macOS
+.DS_Store
+
 # Ignore all __pycache__ folders
 __pycache__/
 
