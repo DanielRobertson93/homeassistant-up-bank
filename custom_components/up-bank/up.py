@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
 
@@ -55,7 +55,7 @@ class UP:
                 ):  # delete does not return content, so return empty dict
                     return {}
 
-                response_data = await resp.json()
+                response_data: dict[str, Any] = await resp.json()
                 _LOGGER.debug("Response JSON: %s", response_data)
                 return response_data
         except aiohttp.ClientError as e:
@@ -73,7 +73,7 @@ class UP:
             raise RuntimeError(
                 f"Up API rejected webhook creation for callback URL {callback_url}"
             )
-        return resp["data"]
+        return cast(dict[str, Any], resp["data"])
 
     async def webhook_exists(self, webhook_id: str) -> bool:
         resp = await self.call(f"/webhooks/{webhook_id}/ping", method="post")
@@ -132,6 +132,6 @@ class UP:
     async def ping(self) -> bool:
         ping_response = await self.call("/util/ping")
         if ping_response is not None:
-            return ping_response["meta"]["statusEmoji"] == "⚡️"
+            return bool(ping_response["meta"]["statusEmoji"] == "⚡️")
         else:
             return False

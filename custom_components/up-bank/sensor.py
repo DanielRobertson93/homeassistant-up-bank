@@ -9,7 +9,7 @@ from typing import Any
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
@@ -35,7 +35,7 @@ async def async_setup_entry(
     entities: list[SensorEntity] = []
 
     # Per-account balances
-    ownership_types_present: set[str] = set()
+    ownership_types_present: set[str | None] = set()
     for acct in coordinator.data.get("accounts", []):
         acct_id = acct.get("id")
         attributes = acct.get("attributes") or {}
@@ -241,7 +241,10 @@ class _LatestTxnBase(_BaseUpSensor):
             a["id"]: (a.get("attributes") or {}).get("ownershipType")
             for a in self.coordinator.data.get("accounts", [])
         }
-        for tx in self.coordinator.data.get("transactions", []):
+        transactions: list[dict[str, Any]] = self.coordinator.data.get(
+            "transactions", []
+        )
+        for tx in transactions:
             rel = ((tx.get("relationships") or {}).get("account") or {}).get(
                 "data"
             ) or {}

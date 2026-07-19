@@ -68,14 +68,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Clean up webhook
-
     api_key = entry.data.get(CONF_API_KEY)
-
-    api = UP(session=async_get_clientsession(hass), api_key=api_key)
-
     up_webhook_id = entry.data.get("up_webhook_id")
 
-    if up_webhook_id:
+    if api_key and up_webhook_id:
+        api = UP(session=async_get_clientsession(hass), api_key=api_key)
         _LOGGER.debug("Deleting Up webhook %s", up_webhook_id)
         await async_delete_webhook(api, up_webhook_id)
 

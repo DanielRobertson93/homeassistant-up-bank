@@ -23,7 +23,7 @@ class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Fetch accounts, recent transactions, categories, tags on a schedule. Handle partial refreshes trigggered by webhook events"""
 
     def __init__(
-        self, hass: HomeAssistant, api: UP, update_interval: timedelta = 5
+        self, hass: HomeAssistant, api: UP, update_interval: timedelta
     ) -> None:
         super().__init__(
             hass,
@@ -47,7 +47,12 @@ class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         # up.py's call() swallows network/HTTP errors and returns None rather than
         # raising, so a failed request here doesn't show up as an exception above.
-        if None in (accounts_resp, tx_resp, cats_resp, tags_resp):
+        if (
+            accounts_resp is None
+            or tx_resp is None
+            or cats_resp is None
+            or tags_resp is None
+        ):
             raise UpdateFailed("Error fetching Up data: one or more requests failed")
 
         accounts = accounts_resp.get("data") or []
@@ -156,11 +161,15 @@ class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 f"Unexpected Up transaction payload shape: {exc}"
             ) from exc
 
+        refreshed_accounts: dict[str, Any] = {}
         try:
-            refreshed_accounts = {
-                account_id: (await self.api.get_account(account_id))["data"]
-                for account_id in account_ids
-            }
+            for account_id in account_ids:
+                account_resp = await self.api.get_account(account_id)
+                if account_resp is None:
+                    raise UpdateFailed(f"Up account {account_id} not found")
+                refreshed_accounts[account_id] = account_resp["data"]
+        except UpdateFailed:
+            raise
         except Exception as exc:
             raise UpdateFailed(f"Error fetching Up account: {exc}") from exc
 
