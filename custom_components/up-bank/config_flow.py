@@ -1,23 +1,30 @@
 import logging
 from typing import Any
+
+import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_API_KEY
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-import voluptuous as vol
-from .const import DOMAIN
-from .up import UP
-from .options_flow import UpBankOptionsFlowHandler
 
-DATA_SCHEMA = vol.Schema({
-    vol.Required(CONF_API_KEY): str,
-    })
+from .const import DOMAIN
+from .options_flow import UpBankOptionsFlowHandler
+from .up import UP
+
+DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_API_KEY): str,
+    }
+)
 _LOGGER = logging.getLogger(__name__)
+
 
 class UpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     @staticmethod
-    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> UpBankOptionsFlowHandler:
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> UpBankOptionsFlowHandler:
         return UpBankOptionsFlowHandler()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
@@ -40,8 +47,7 @@ class UpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors[CONF_API_KEY] = "API Key not validated, unknown error"
-                
+
         return self.async_show_form(
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
-

@@ -1,26 +1,29 @@
 """Up Bank integration bootstrap (polling, options, coordinator)."""
+
 from __future__ import annotations
+
 import logging
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
 from homeassistant.const import CONF_API_KEY
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .webhook_manager import async_setup_webhook
-from .webhook_manager import async_delete_webhook
-from .up import UP
+from .const import DEFAULT_REFRESH_MIN, DOMAIN, PLATFORMS
 from .coordinator import UpDataCoordinator
-from .const import DOMAIN, PLATFORMS, DEFAULT_REFRESH_MIN
+from .up import UP
+from .webhook_manager import async_delete_webhook, async_setup_webhook
 
 _LOGGER = logging.getLogger(__name__)
+
 
 # ---------- Setup / Options handling ----------
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload when options (e.g., refresh interval) change."""
     await hass.config_entries.async_reload(entry.entry_id)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     api_key = entry.data.get(CONF_API_KEY)
@@ -40,16 +43,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     if not coordinator.last_update_success:
         raise ConfigEntryNotReady("Initial Up API fetch failed.")
-    
+
     # Webhooks are a nice-to-have, so try to setup if the user has a valid calback url for UP to use
     try:
         webhook_id = await async_setup_webhook(hass, entry, api)
     except Exception:
-        _LOGGER.warning("Up webhook setup failed; continuing with polling only", exc_info=True)
+        _LOGGER.warning(
+            "Up webhook setup failed; continuing with polling only", exc_info=True
+        )
         webhook_id = None
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator, "api": api, "up_webhook_id": webhook_id}
+    hass.data[DOMAIN][entry.entry_id] = {
+        "coordinator": coordinator,
+        "api": api,
+        "up_webhook_id": webhook_id,
+    }
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

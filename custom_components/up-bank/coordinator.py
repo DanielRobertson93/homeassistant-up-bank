@@ -1,28 +1,34 @@
 from __future__ import annotations
-from datetime import timedelta
+
 import asyncio
 import logging
+from datetime import timedelta
 from typing import Any
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
 from homeassistant.util import dt as dt_util
+
 from .up import UP
 
 _LOGGER = logging.getLogger(__name__)
 
-MAX_TX_PER_PAGE = 50 # page size for /transactions
+MAX_TX_PER_PAGE = 50  # page size for /transactions
+
 
 class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Fetch accounts, recent transactions, categories, tags on a schedule. Handle partial refreshes trigggered by webhook events"""
 
-    def __init__(self, hass: HomeAssistant, api: UP, update_interval: timedelta = 5) -> None:
+    def __init__(
+        self, hass: HomeAssistant, api: UP, update_interval: timedelta = 5
+    ) -> None:
         super().__init__(
-            hass, 
-            _LOGGER, 
-            name="Up Bank Coordinator", 
+            hass,
+            _LOGGER,
+            name="Up Bank Coordinator",
             update_interval=update_interval,
         )
         self.api = api
@@ -38,6 +44,11 @@ class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         except Exception as exc:
             raise UpdateFailed(f"Error fetching Up data: {exc}") from exc
+
+        # up.py's call() swallows network/HTTP errors and returns None rather than
+        # raising, so a failed request here doesn't show up as an exception above.
+        if None in (accounts_resp, tx_resp, cats_resp, tags_resp):
+            raise UpdateFailed("Error fetching Up data: one or more requests failed")
 
         accounts = accounts_resp.get("data") or []
         transactions = tx_resp.get("data") or []
@@ -82,16 +93,24 @@ class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         previous = (self.data or {}).get("summary", {})
         fallback = {
             key: previous.get(key, 0)
-            for key in ("transactions_today", "transactions_this_week", "transactions_this_month")
+            for key in (
+                "transactions_today",
+                "transactions_this_week",
+                "transactions_this_month",
+            )
         }
 
         try:
-            month_transactions = await self.api.get_transactions_since(start_of_month.isoformat())
+            month_transactions = await self.api.get_transactions_since(
+                start_of_month.isoformat()
+            )
         except Exception:
             month_transactions = None
 
         if month_transactions is None:
-            _LOGGER.warning("Failed fetching transaction window counts; keeping previous values")
+            _LOGGER.warning(
+                "Failed fetching transaction window counts; keeping previous values"
+            )
             return fallback
 
         today_count = 0
@@ -133,7 +152,9 @@ class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if transfer_account is not None:
                 account_ids.append(transfer_account["id"])
         except KeyError as exc:
-            raise UpdateFailed(f"Unexpected Up transaction payload shape: {exc}") from exc
+            raise UpdateFailed(
+                f"Unexpected Up transaction payload shape: {exc}"
+            ) from exc
 
         try:
             refreshed_accounts = {
@@ -147,16 +168,20 @@ class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         accounts = {a["id"]: a for a in data.get("accounts", [])}
         accounts.update(refreshed_accounts)
 
-        transactions = [t for t in data.get("transactions", []) if t["id"] != transaction["id"]]
+        transactions = [
+            t for t in data.get("transactions", []) if t["id"] != transaction["id"]
+        ]
         transactions.insert(0, transaction)
 
         accounts_list = list(accounts.values())
         summary = self._summarize(accounts_list)
         summary.update(await self._fetch_window_counts())
 
-        data.update({
-            "accounts": accounts_list,
-            "transactions": transactions,
-            "summary": summary,
-        })
+        data.update(
+            {
+                "accounts": accounts_list,
+                "transactions": transactions,
+                "summary": summary,
+            }
+        )
         return data

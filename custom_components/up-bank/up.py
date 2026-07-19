@@ -7,16 +7,15 @@ import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-MAX_TX_PER_PAGE = 50                # page size for /transactions
-MAX_PAGE_SIZE = 100                 # Up's documented max page[size]
+MAX_TX_PER_PAGE = 50  # page size for /transactions
+MAX_PAGE_SIZE = 100  # Up's documented max page[size]
 BASE_URL = "https://api.up.com.au/api/v1"
+
 
 class UP:
     def __init__(self, session: aiohttp.ClientSession, api_key: str) -> None:
         self._session = session
-        self._headers = {
-            "Authorization": f"Bearer {api_key}"
-        }
+        self._headers = {"Authorization": f"Bearer {api_key}"}
 
     async def call(
         self,
@@ -31,10 +30,14 @@ class UP:
         # Pagination links from Up are already full URLs; everything else is a relative endpoint.
         url = endpoint if endpoint.startswith("http") else BASE_URL + endpoint
 
-        _LOGGER.debug("Making %s request to %s with params: %s", method.upper(), url, params)
+        _LOGGER.debug(
+            "Making %s request to %s with params: %s", method.upper(), url, params
+        )
 
         try:
-            async with self._session.request(method=method, url=url, headers=self._headers, params=params, json=json) as resp:
+            async with self._session.request(
+                method=method, url=url, headers=self._headers, params=params, json=json
+            ) as resp:
                 _LOGGER.debug("Received response status: %s", resp.status)
 
                 if resp.status == 401:
@@ -42,10 +45,14 @@ class UP:
                     return None
                 if resp.status not in {200, 201, 204}:
                     body = await resp.text()
-                    _LOGGER.error("Error: Received status code %s: %s", resp.status, body)
+                    _LOGGER.error(
+                        "Error: Received status code %s: %s", resp.status, body
+                    )
                     return None
 
-                if method == "delete": # delete does not return content, so return empty dict
+                if (
+                    method == "delete"
+                ):  # delete does not return content, so return empty dict
                     return {}
 
                 response_data = await resp.json()
@@ -58,15 +65,14 @@ class UP:
     async def create_webhook(self, callback_url: str) -> dict[str, Any]:
         data = {
             "data": {
-                "attributes": {
-                    "url": callback_url,
-                    "description": "Home Assistant"
-                }
+                "attributes": {"url": callback_url, "description": "Home Assistant"}
             }
         }
         resp = await self.call("/webhooks", method="post", json=data)
         if resp is None:
-            raise RuntimeError(f"Up API rejected webhook creation for callback URL {callback_url}")
+            raise RuntimeError(
+                f"Up API rejected webhook creation for callback URL {callback_url}"
+            )
         return resp["data"]
 
     async def webhook_exists(self, webhook_id: str) -> bool:
@@ -86,17 +92,24 @@ class UP:
     async def get_account(self, account_id: str) -> dict[str, Any] | None:
         return await self.call(f"/accounts/{account_id}")
 
-    async def get_transactions(self, page_size: int = MAX_TX_PER_PAGE) -> dict[str, Any] | None:
+    async def get_transactions(
+        self, page_size: int = MAX_TX_PER_PAGE
+    ) -> dict[str, Any] | None:
         # Most recent first; one page is plenty for dashboards & notifications.
         return await self.call("/transactions", params={"page[size]": str(page_size)})
 
-    async def get_transactions_since(self, since_iso: str) -> list[dict[str, Any]] | None:
+    async def get_transactions_since(
+        self, since_iso: str
+    ) -> list[dict[str, Any]] | None:
         """Fetch every transaction from `since_iso` to now, following pagination.
 
         Bounded by how many transactions occurred in that window (not full account
         history), so this stays cheap for e.g. "since start of month" style queries.
         """
-        resp = await self.call("/transactions", params={"filter[since]": since_iso, "page[size]": str(MAX_PAGE_SIZE)})
+        resp = await self.call(
+            "/transactions",
+            params={"filter[since]": since_iso, "page[size]": str(MAX_PAGE_SIZE)},
+        )
         if resp is None:
             return None
 

@@ -1,27 +1,33 @@
 from __future__ import annotations
+
 import hashlib
 import hmac
 import json
 import logging
 from typing import Any
 
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.network import get_url
+from aiohttp import web
 from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntry
-from aiohttp import web
-from .coordinator import UpDataCoordinator
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.network import get_url
+
 from .const import DOMAIN
+from .coordinator import UpDataCoordinator
 from .up import UP
 
 _LOGGER = logging.getLogger(__name__)
+
 
 def _verify_signature(secret_key: str, raw_body: bytes, signature: str) -> bool:
     """Validate X-Up-Authenticity-Signature: SHA-256 HMAC of the raw body, keyed by the webhook secret."""
     expected = hmac.new(secret_key.encode(), raw_body, hashlib.sha256).hexdigest()
     return hmac.compare_digest(signature, expected)
 
-async def async_handle_webhook(hass: HomeAssistant, webhook_id: str, request: web.Request, entry: ConfigEntry) -> web.Response:
+
+async def async_handle_webhook(
+    hass: HomeAssistant, webhook_id: str, request: web.Request, entry: ConfigEntry
+) -> web.Response:
     raw_body = await request.read()
 
     secret_key = entry.data.get("up_secretKey")
@@ -36,7 +42,10 @@ async def async_handle_webhook(hass: HomeAssistant, webhook_id: str, request: we
 
     return web.Response(status=200)
 
-async def process_webhook_event(hass: HomeAssistant, payload: dict[str, Any], entry_id: str) -> None:
+
+async def process_webhook_event(
+    hass: HomeAssistant, payload: dict[str, Any], entry_id: str
+) -> None:
 
     coordinator: UpDataCoordinator = hass.data[DOMAIN][entry_id]["coordinator"]
 
@@ -51,6 +60,7 @@ async def process_webhook_event(hass: HomeAssistant, payload: dict[str, Any], en
         transaction_id = payload["data"]["relationships"]["transaction"]["data"]["id"]
         data = await coordinator._async_partial_refresh_data(transaction_id)
         coordinator.async_set_updated_data(data)
+
 
 async def async_setup_webhook(
     hass: HomeAssistant,
@@ -95,16 +105,20 @@ async def async_setup_webhook(
         # 5. Persist
         hass.config_entries.async_update_entry(
             entry,
-            data={**entry.data,
-                  "up_webhook_id": up_webhook_id,
-                  "ha_webhook_id": ha_webhook_id,
-                  "up_secretKey": up_webhook_secret_key},
+            data={
+                **entry.data,
+                "up_webhook_id": up_webhook_id,
+                "ha_webhook_id": ha_webhook_id,
+                "up_secretKey": up_webhook_secret_key,
+            },
         )
 
         _LOGGER.info("Created Up webhook %s", up_webhook_id)
 
     # 6. Register our handler so incoming requests to the callback URL reach us.
-    async def _handler(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
+    async def _handler(
+        hass: HomeAssistant, webhook_id: str, request: web.Request
+    ) -> web.Response:
         return await async_handle_webhook(hass, webhook_id, request, entry)
 
     webhook.async_register(hass, DOMAIN, "Up Bank", ha_webhook_id, _handler)
