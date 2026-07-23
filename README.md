@@ -1,24 +1,27 @@
-Home Assistant Up Bank Integration forked from [here](https://github.com/jamespdat-spec/homeassistant-up-bank)
+# Home Assistant Up Bank Integration 
+Forked from [here](https://github.com/jamespdat-spec/homeassistant-up-bank).
 
-Uses the Up bank API [docs](https://developer.up.com.au), [github](https://github.com/up-banking/api), to pull account balances and latest transaction information. Leverages Up API's webhooks for pushed data.
+This integration uses the Up bank [API](https://developer.up.com.au) ([github](https://github.com/up-banking/api)), to pull account balances and latest transaction information. Leverages Up API's webhooks for close to live updates.
 
 ## Upgrading from a pre-0.5.0 version (domain rename)
-As of 0.5.0 the integration's domain changed from `up-bank` to `up_bank` (the hyphen caused a string of tooling/frontend quirks - notably Home Assistant's brand-icon proxy silently 404ing for hyphenated custom integration domains). This is a one-time breaking change: HA ties a config entry to its domain, so upgrading in place isn't possible.
+As of 0.5.0 the integration's domain changed from `up-bank` to `up_bank`. This was to bring the integration in line with home assistant [style guide](https://developers.home-assistant.io/docs/development_guidelines/) and typing requirements. HA uses [mypy for typing](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/strict-typing/) and it's package name validation rejects hyphens. I suspect the hyphen in the domain name was also breaking the front end's ability to get the up bank icon. 
+
+This is a one-time breaking change. HA ties a config entry to its domain, so unfortunately updating in place was not possible.
+Your sensor entity IDs (e.g. `sensor.up_total_balance`) are set explicitly by the integration and don't contain the domain string, so history, dashboards, and automations referencing them keep working across this migration untouched - only the API key needs re-entering.
 
 To upgrade:
 1. Update to 0.5.0+ via HACS as normal.
 2. Go to Settings -> Devices & Services, find the (now broken) old Up Bank entry, and delete it.
 3. Add the integration again fresh (Settings -> Devices & Services -> Add Integration -> Up Bank) and re-enter your API key.
 
-Your sensor entity IDs (e.g. `sensor.up_total_balance`) are set explicitly by the integration and don't contain the domain string, so history, dashboards, and automations referencing them keep working across this migration untouched - only the API key needs re-entering.
+Likely overkill to go this hard on the strictly typing but I thought it was worth ripping the bandaid off now to make any eventual submissions to home assistant core easier. I'm also interested in building some tests as a learning experience and maybe trying to work up the integration quality scale in the future.
 
-# Webhook updates are now supported!
+## Webhook updates are now supported!
 
-## Getting an external URL for webhooks
-A few ways to get that external URL:
+Options for an getting an External URL to enable webhook functionality:
 
 - **Home Assistant Cloud (Nabu Casa)** - the official, supported option if you're already a subscriber. Gives you a
-  stable HTTPS URL with no networking setup at all. Easiest choice if you have it.
+  stable HTTPS URL with no networking setup at all. Easiest and supports the Home Assistant devs!
 - **Tailscale Funnel** - what I used for testing (see `docker-compose.yml`/`config/configuration.yaml`).
 - Cloudflare Tunnel 
 - ngrok
@@ -42,7 +45,7 @@ The easiest way is to install via HACS, see https://github.com/hacs/integration 
 10. Enter the API key on the config screen
 
 # Development
-There is an included a docker-compose file with mapping, so make sure you have docker, and docker-compose installed. Then you can start it with `docker compose up -d`. Every time you change the files you will need to restart the server inside the HA GUI for the changes to kick in.
+There is an included a docker-compose, so make sure you have docker, and docker-compose installed. Then you can start it with `docker compose up -d`. Every time you change the files you will need to restart the server inside the HA GUI for the changes to kick in.
 
 ## Tooling (ruff, mypy)
 This repo uses `ruff` (lint + format) and `mypy` (type checking), configured in `pyproject.toml`.
