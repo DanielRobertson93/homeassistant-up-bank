@@ -19,6 +19,16 @@ _LOGGER = logging.getLogger(__name__)
 MAX_TX_PER_PAGE = 50  # page size for /transactions
 
 
+def ownership_types_present(data: dict[str, Any]) -> set[str]:
+    """Distinct account ownership types (INDIVIDUAL/JOINT) seen in coordinator data."""
+    result: set[str] = set()
+    for a in data.get("accounts", []):
+        ownership_type = (a.get("attributes") or {}).get("ownershipType")
+        if ownership_type:
+            result.add(ownership_type)
+    return result
+
+
 class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Fetch accounts, recent transactions, categories, tags on a schedule. Handle partial refreshes trigggered by webhook events"""
 
@@ -133,6 +143,22 @@ class UpDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "transactions_this_week": week_count,
             "transactions_this_month": len(month_transactions),
         }
+
+    def latest_transaction_for(self, ownership_type: str) -> dict[str, Any] | None:
+        """Most recent transaction belonging to an account of the given ownership type."""
+        data = self.data or {}
+        ownership = {
+            a["id"]: (a.get("attributes") or {}).get("ownershipType")
+            for a in data.get("accounts", [])
+        }
+        transactions: list[dict[str, Any]] = data.get("transactions", [])
+        for tx in transactions:
+            rel = ((tx.get("relationships") or {}).get("account") or {}).get(
+                "data"
+            ) or {}
+            if ownership.get(rel.get("id")) == ownership_type:
+                return tx
+        return None
 
     async def _async_partial_refresh_data(self, transaction_id: str) -> dict[str, Any]:
         """Refresh only the accounts and transaction touched by a webhook event.

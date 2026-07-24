@@ -1,3 +1,3 @@
 DOMAIN = "up_bank"
-PLATFORMS = ["sensor"]
+PLATFORMS = ["sensor", "event"]
 DEFAULT_REFRESH_MIN = 10  # safe default
